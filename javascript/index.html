@@ -7,7 +7,57 @@
       , data: "6a026b0c6c3f6d0ca2eadab6dcd66e0022d4660368026060f015f0073000121ac717770869ffa2f0d671a2eadab6dcd66001e0a17bfe6004e0a17b02601f8b02dab6600ce0a17dfe600de0a17d02601f8d02dcd6a2f0d67186848794603f8602611f871246021278463f1282471f69ff47006901d671122a68026301807080b5128a68fe630a807080d53f0112a2610280153f0112ba80153f0112c880153f0112c26020f01822d48e3422d4663e3301660368fe33016802121679ff49fe69ff12c87901490269016004f0187601464076fe126ca2f2fe33f265f12964146500d4557415f229d45500ee808080808080800000000000"
     }
 
-    memory = Array.apply(null, {length: 4096});
+    //Int8Array can be used but i this is ES2017 spec and i am old-skool
+    memory   = Array.apply(null, {length: 4096});
+
+    /*
+    CHIP-8 allows for the usage of sixteen eight-bit general purpose registers capable of storing
+    unsigned integers between decimal 0 and 255, or hexadecimal 00 to FF.
+    These registers are referred to as V0 to VF, one for each hexadecimal digit.
+    Any register can be used for data manipulation, but it should be noted that the VF register is often
+    modified by certain instructions to act as a flag.
+    */
+
+    /* I Register
+    In order to specify the memory addresses containing the data for a given sprite, there must be some way to store an address for later use. The sixteen data registers (V0 - VF) provided by CHIP-8 are only eight bits in length, and therefore could only store addresses 00 to FF. Therefore, CHIP-8 provides a special register that is used only to store memory addresses. This register, called the I register, proves useful when performing operations involving reading and writing to and from memory, most importantly, drawing graphics.
+    */
+    register = Array.apply(null, {length: 16});
+    var cpu = {
+      type: 'chip8',
+      register: new Int8Array(16),
+      iregister: 0,
+      instr: {
+        // LD_6XNN: Store number NN in register VX
+        LD_6XNN: function(hReg, hValue) {
+          this.Parent.register[hex2dec(hReg)]=hex2dec(hValue);
+        },
+        // 8XY0 Store the value of register VY in register VX
+        LD_8XY0: function(valX, valY) {
+          this.Parent.register[hex2dec(valX)]=this.Parent.register[hex2dec(valY)];
+        },
+
+        // Store memory address NNN in register I
+        LD_ANNN: function(hValue) {
+          this.Parent.iregister=hex2dec(hValue);
+        },
+        // Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
+        LD_FX29: function(hValue) {
+          this.Parent.iregister=this.Parent.register[ hex2dec(hValue) ];
+        }
+
+      },
+      init: function() {
+        this.instr.Parent = this;
+          delete this.init;
+          return this;
+      }
+    }.init();
+
+
+    function hex2dec(hex) {
+      return parseInt(hex, 16);
+    }
+
 
     opcodes = {
           "00E0": [1, "CLS","Clear the screen"]
@@ -47,14 +97,11 @@
         , "FX65": [1, "LD","Fill registers V0 to VX inclusive with the values stored in memory starting at address I. I is set to I + X + 1 after operation"]
     }
 
+
     function main() {
       // setup gfx
       // setup input
       // init CHIP8_CPU
-//      num_bytes = 4; // read 4 bytes at the time
-//      for (i=0;<rom.length;i+num_bytes) {
-//
-//      }
     }
 
     // the opcodes table is created for readability
@@ -95,15 +142,18 @@
           console.log("Processing 5XNN %s", opcodes["5XNN"][2]);
           break;
         case '6': // 6XNN
-          console.log("Processing 6XNN %s", opcodes["6XNN"][2]);
+          //Processing 6XNN Store number NN in register VX
+          this.cpu.instr.LD_6XNN(instr[1],instr[2]+instr[3]);
+          console.log("Processing 6XNN %s, REGISTRY:%s VALUE: %s", opcodes["6XNN"][2],instr[1],instr[2]+instr[3]);
           break;
         case '7': // 6XNN
           console.log("Processing 7XNN %s", opcodes["7XNN"][2]);
           break;
         case '8':
           switch(instr[3]) {
-            case '0': // 8XY0
-              console.log("Processing 8XY0 %s", opcodes["8XY0"][2]);
+            case '0': // 8XY0 Store the value of register VY in register VX
+              this.cpu.instr.LD_8XY0(instr[1],instr[2]);
+              console.log("Processing 8XY0 %s REGX:%s REGY:%s", opcodes["8XY0"][2], instr[1],instr[2]);
               break;
             case '1': // 8XY1
               console.log("Processing 8XY1 %s", opcodes["8XY1"][2]);
@@ -135,7 +185,9 @@
           console.log("Processing 9XY0 %s", opcodes["9XY0"][2]);
           break;
         case 'A': //ANNN
-          console.log("Processing ANNN %s", opcodes["ANNN"][2]);
+          // Store memory address NNN in register I
+          this.cpu.instr.LD_ANNN(instr[1]+instr[2]+instr[3]);
+          console.log("Processing ANNN %s, iregistry memory address: %s", opcodes["ANNN"][2], instr[1]+instr[2]+instr[3]);
           break;
         case 'B':  //BNNN
           console.log("Processing BNNN %s", opcodes["BNNN"][2]);
@@ -158,7 +210,7 @@
           break;
         case 'F':
           switch (instr[2]+instr[3]) {
-            case '07': //FX07
+            case '07': //FX07 Store the current value of the delay timer in register VX
               console.log("Processing FX07 %s", opcodes["FX07"][2]);
               break;
             case '0A': //FX0A
@@ -173,7 +225,8 @@
             case '1E': //FX1E
               console.log("Processing FX1E %s", opcodes["FX1E"][2]);
               break;
-            case '29': //FX29
+            case '29': //FX29 Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
+              this.cpu.instr.LD_FX29(instr[1]);
               console.log("Processing FX29 %s", opcodes["FX29"][2]);
               break;
             case '33': //FX33
@@ -200,6 +253,11 @@
     for (i=0;i<program.length;i++) {
       console.log( program[i]);
       get_opcode_by_instr(program[i]);
+      // dump registers
+      if (this.cpu.iregister>0) {
+        console.log("iregister set to memory location: %s", this.cpu.iregister);              
+      }
+      console.log( this.cpu.register);
     }
 
     </script>
