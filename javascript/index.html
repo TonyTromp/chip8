@@ -51,7 +51,22 @@
       // setup gfx
       // setup input
       // init CHIP8_CPU
+//      num_bytes = 4; // read 4 bytes at the time
+//      for (i=0;<rom.length;i+num_bytes) {
+//
+//      }
     }
+
+    for (i=0;i<opcodes.keys;i++) {
+      console.log( opcodes[i]);
+    }
+
+
+    var program = rom.data.match(/(.{1,4})/g);
+    for (i=0;i<program.length;i++) {
+      console.log( program[i]);
+    }
+
     </script>
   </head>
 <body onload="javascript:main();">
