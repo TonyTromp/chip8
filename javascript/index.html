@@ -24,26 +24,21 @@
     register = Array.apply(null, {length: 16});
     var cpu = {
       type: 'chip8',
-      register: new Int8Array(16),
+      register: new Int16Array(16),
       iregister: 0,
       instr: {
         // LD_6XNN: Store number NN in register VX
-        LD_6XNN: function(hReg, hValue) {
-          this.Parent.register[hex2dec(hReg)]=hex2dec(hValue);
-        },
+        LD_6XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)]=hex2dec(hValue); },
         // 8XY0 Store the value of register VY in register VX
-        LD_8XY0: function(valX, valY) {
-          this.Parent.register[hex2dec(valX)]=this.Parent.register[hex2dec(valY)];
-        },
-
+        LD_8XY0: function(valX, valY) { this.Parent.register[hex2dec(valX)]=this.Parent.register[hex2dec(valY)];  },
         // Store memory address NNN in register I
-        LD_ANNN: function(hValue) {
-          this.Parent.iregister=hex2dec(hValue);
-        },
+        LD_ANNN: function(hValue) {  this.Parent.iregister=hex2dec(hValue); },
         // Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
-        LD_FX29: function(hValue) {
-          this.Parent.iregister=this.Parent.register[ hex2dec(hValue) ];
-        }
+        LD_FX29: function(hValue) { this.Parent.iregister=this.Parent.register[ hex2dec(hValue) ]; },
+
+        // 7XNN Add the value NN to register VX
+        ADD_7XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)] += hex2dec(hValue); if (this.Parent.register[hex2dec(hReg)]>254) this.Parent.register[hex2dec(hReg)]=254; }
+
 
       },
       init: function() {
@@ -146,7 +141,8 @@
           this.cpu.instr.LD_6XNN(instr[1],instr[2]+instr[3]);
           console.log("Processing 6XNN %s, REGISTRY:%s VALUE: %s", opcodes["6XNN"][2],instr[1],instr[2]+instr[3]);
           break;
-        case '7': // 6XNN
+        case '7': // 7XNN Add the value NN to register VX
+          this.cpu.instr.ADD_7XNN(instr[1],instr[2]+instr[3]);
           console.log("Processing 7XNN %s", opcodes["7XNN"][2]);
           break;
         case '8':
@@ -255,7 +251,7 @@
       get_opcode_by_instr(program[i]);
       // dump registers
       if (this.cpu.iregister>0) {
-        console.log("iregister set to memory location: %s", this.cpu.iregister);              
+        console.log("iregister set to memory location: %s", this.cpu.iregister);
       }
       console.log( this.cpu.register);
     }
