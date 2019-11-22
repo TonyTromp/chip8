@@ -10,41 +10,41 @@
     memory = Array.apply(null, {length: 4096});
 
     opcodes = {
-        "00E0": {"CLS":"Clear the screen"}
-        , "00EE": {"RET":"Return from a subroutine"}
-        , "0NNN": {"SYS addr":"Execute machine language subroutine at address NNN"}
-        , "1NNN": {"JP addr":"Jump to address NNN"}
-        , "2NNN": {"CALL addr":"Execute subroutine starting at address NNN"}
-        , "3XNN": {"SE Vx, byte":"Skip the following instruction if the value of register VX equals NN"}
-        , "4XNN": {"SNE Vx, byte":"Skip the following instruction if the value of register VX is not equal to NN"}
-        , "5XY0 ": {"SE Vx, Vy":"Skip the following instruction if the value of register VX is equal to the value of register VY"}
-        , "6XNN": {"LD Vx, byte":"Store number NN in register VX"}
-        , "7XNN": {"ADD Vx, byte":"Add the value NN to register VX"}
-        , "8XY0": {"LD Vx, Vy":"Store the value of register VY in register VX"}
-        , "8XY1": {"OR Vx, Vy":"Set VX to VX OR VY"}
-        , "8XY2": {"AND Vx, Vy":"Set VX to VX AND VY"}
-        , "8XY3": {"XOR Vx, Vy":"Set VX to VX XOR VY"}
-        , "8XY4": {"ADD Vx, Vy":"Add the value of register VY to register VX. Set VF to 01 if a carry occurs. Set VF to 00 if a carry does not occur"}
-        , "8XY5": {"SUB Vx, Vy":"Subtract the value of register VY from register VX.Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"}
-        , "8XY6": {"SHR Vx {, Vy}":"Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift"}
-        , "8XY7": {"SUBN Vx, Vy":"Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"}
-        , "8XYE": {"SHL Vx {, Vy}":"Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift"}
-        , "9XY0": {"SNE Vx, Vy":"Skip the following instruction if the value of register VX is not equal to the value of register VY"}
-        , "ANNN": {"LD I, addr":"Store memory address NNN in register I"}
-        , "BNNN": {"JP V0, addr":"Jump to address NNN + V0"}
-        , "CXNN": {"RND Vx, byte":"Set VX to a random number with a mask of NN"}
-        , "DXYN": {"DRW Vx, Vy, nibble":"Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise"}
-        , "EX9E": {"SKP Vx":"Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed"}
-        , "EXA1": {"SKNP Vx":"Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed"}
-        , "FX07": {"LD Vx, DT":"Store the current value of the delay timer in register VX"}
-        , "FX0A": {"LD Vx, K":"Wait for a keypress and store the result in register VX"}
-        , "FX15": {"LD DT, Vx":"Set the delay timer to the value of register VX"}
-        , "FX18": {"LD ST, Vx":"Set the sound timer to the value of register VX"}
-        , "FX1E": {"ADD I, Vx":"Add the value stored in register VX to register I"}
-        , "FX29": {"LD F, Vx":"Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX"}
-        , "FX33": {"LD B, Vx":"Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I+1, and I+2"}
-        , "FX55": {"LD [I], Vx":"Store the values of registers V0 to VX inclusive in memory starting at address I. I is set to I + X + 1 after operation"}
-        , "FX65": {"LD Vx, [I]":"Fill registers V0 to VX inclusive with the values stored in memory starting at address I. I is set to I + X + 1 after operation"}
+          "00E0": [1, "CLS","Clear the screen"]
+        , "00EE": [1, "RET","Return from a subroutine"]
+        , "0NNN": [1, "SYS","Execute machine language subroutine at address NNN"]
+        , "1NNN": [1, "JP","Jump to address NNN"]
+        , "2NNN": [1, "CALL","Execute subroutine starting at address NNN"]
+        , "3XNN": [1, "SE","Skip the following instruction if the value of register VX equals NN"]
+        , "4XNN": [1, "SNE","Skip the following instruction if the value of register VX is not equal to NN"]
+        , "5XY0": [1, "SE","Skip the following instruction if the value of register VX is equal to the value of register VY"]
+        , "6XNN": [1, "LD","Store number NN in register VX"]
+        , "7XNN": [1, "ADD","Add the value NN to register VX"]
+        , "8XY0": [1, "LD","Store the value of register VY in register VX"]
+        , "8XY1": [1, "OR","Set VX to VX OR VY"]
+        , "8XY2": [1, "AND","Set VX to VX AND VY"]
+        , "8XY3": [1, "XOR","Set VX to VX XOR VY"]
+        , "8XY4": [1, "ADD","Add the value of register VY to register VX. Set VF to 01 if a carry occurs. Set VF to 00 if a carry does not occur"]
+        , "8XY5": [1, "SUB","Subtract the value of register VY from register VX.Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"]
+        , "8XY6": [1, "SHR","Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift"]
+        , "8XY7": [1, "SUBN","Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"]
+        , "8XYE": [1, "SHL","Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift"]
+        , "9XY0": [1, "SNE","Skip the following instruction if the value of register VX is not equal to the value of register VY"]
+        , "ANNN": [1, "LD","Store memory address NNN in register I"]
+        , "BNNN": [1, "JP","Jump to address NNN + V0"]
+        , "CXNN": [1, "RND","Set VX to a random number with a mask of NN"]
+        , "DXYN": [1, "DRW","Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise"]
+        , "EX9E": [1, "SKP","Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed"]
+        , "EXA1": [1, "SKNP","Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed"]
+        , "FX07": [1, "LD","Store the current value of the delay timer in register VX"]
+        , "FX0A": [1, "LD","Wait for a keypress and store the result in register VX"]
+        , "FX15": [1, "LD","Set the delay timer to the value of register VX"]
+        , "FX18": [1, "LD","Set the sound timer to the value of register VX"]
+        , "FX1E": [1, "ADD","Add the value stored in register VX to register I"]
+        , "FX29": [1, "LD","Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX"]
+        , "FX33": [1, "LD","Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I+1, and I+2"]
+        , "FX55": [1, "LD","Store the values of registers V0 to VX inclusive in memory starting at address I. I is set to I + X + 1 after operation"]
+        , "FX65": [1, "LD","Fill registers V0 to VX inclusive with the values stored in memory starting at address I. I is set to I + X + 1 after operation"]
     }
 
     function main() {
@@ -57,14 +57,149 @@
 //      }
     }
 
+    // the opcodes table is created for readability
+    // now lets transpose for the sake of speed to a flat page
+    const keys = Object.keys(opcodes);
+    opcode_string=keys.toString();
+
+    function get_opcode_by_instr(instr) {
+      //not going to use regex because regex would be a waste test if last-nibble is needed, the hard ways
+      switch (instr[0]) {
+        case '0':
+           if (instr=="0000") {
+             return; // nop-cycle
+           }
+           // complex type.. test last-nibble
+           switch (instr[3]) {
+             case '0':
+               console.log("Processing 00E0 %s", opcodes["00E0"][2]);
+             break;
+             case 'E': // 00EE
+               console.log("Processing 00EE %s", opcodes["00EE"][2]);
+             break;
+           }
+          break;
+        case '1':
+          console.log("Processing 1NNN %s", opcodes["1NNN"][2]);
+          break;
+        case '2':
+          console.log("Processing 2NNN %s", opcodes["2NNN"][2]);
+          break;
+        case '3': // 3XNN
+          console.log("Processing 3XNN %s", opcodes["3XNN"][2]);
+          break;
+        case '4': // 4XNN
+          console.log("Processing 4XNN %s", opcodes["4XNN"][2]);
+          break;
+        case '5': // 5XNN
+          console.log("Processing 5XNN %s", opcodes["5XNN"][2]);
+          break;
+        case '6': // 6XNN
+          console.log("Processing 6XNN %s", opcodes["6XNN"][2]);
+          break;
+        case '7': // 6XNN
+          console.log("Processing 7XNN %s", opcodes["7XNN"][2]);
+          break;
+        case '8':
+          switch(instr[3]) {
+            case '0': // 8XY0
+              console.log("Processing 8XY0 %s", opcodes["8XY0"][2]);
+              break;
+            case '1': // 8XY1
+              console.log("Processing 8XY1 %s", opcodes["8XY1"][2]);
+              break;
+            case '2': // 8XY2
+              console.log("Processing 8XY2 %s", opcodes["8XY2"][2]);
+              break;
+            case '3': // 8XY3
+              console.log("Processing 8XY3 %s", opcodes["8XY3"][2]);
+              break;
+            case '4': // 8XY4
+              console.log("Processing 8XY4 %s", opcodes["8XY4"][2]);
+              break;
+            case '5': // 8XY5
+              console.log("Processing 8XY5 %s", opcodes["8XY5"][2]);
+              break;
+            case '6': // 8XY6
+              console.log("Processing 8XY6 %s", opcodes["8XY6"][2]);
+              break;
+            case '7': // 8XY7
+              console.log("Processing 8XY7 %s", opcodes["8XY7"][2]);
+              break;
+            case '8': // 8XY7
+              console.log("Processing 8XYE %s", opcodes["8XYE"][2]);
+              break;
+          }
+          break;
+        case '9': //9XY0
+          console.log("Processing 9XY0 %s", opcodes["9XY0"][2]);
+          break;
+        case 'A': //ANNN
+          console.log("Processing ANNN %s", opcodes["ANNN"][2]);
+          break;
+        case 'B':  //BNNN
+          console.log("Processing BNNN %s", opcodes["BNNN"][2]);
+          break;
+        case 'C': //CXNN
+          console.log("Processing CXNN %s", opcodes["CXNN"][2]);
+          break;
+        case 'D': //DXYN
+          console.log("Processing DXYN %s", opcodes["DXYN"][2]);
+          break;
+        case 'E':
+          switch (instr[3]) {
+            case 'E': //EX9E
+              console.log("Processing EX9E %s", opcodes["EX9E"][2]);
+              break;
+            case '1': //EXA1
+              console.log("Processing EXA1 %s", opcodes["EXA1"][2]);
+              break;
+          }
+          break;
+        case 'F':
+          switch (instr[2]+instr[3]) {
+            case '07': //FX07
+              console.log("Processing FX07 %s", opcodes["FX07"][2]);
+              break;
+            case '0A': //FX0A
+              console.log("Processing FX0A %s", opcodes["FX0A"][2]);
+              break;
+            case '15': //FX15
+              console.log("Processing FX15 %s", opcodes["FX15"][2]);
+              break;
+            case '18': //FX18
+              console.log("Processing FX18 %s", opcodes["FX18"][2]);
+              break;
+            case '1E': //FX1E
+              console.log("Processing FX1E %s", opcodes["FX1E"][2]);
+              break;
+            case '29': //FX29
+              console.log("Processing FX29 %s", opcodes["FX29"][2]);
+              break;
+            case '33': //FX33
+              console.log("Processing FX33 %s", opcodes["FX33"][2]);
+              break;
+            case '55': //FX55
+              console.log("Processing FX55 %s", opcodes["FX55"][2]);
+              break;
+            case '65': //FX65
+              console.log("Processing FX65 %s", opcodes["FX65"][2]);
+              break;
+          }
+
+          break;
+      }
+    }
+
     for (i=0;i<opcodes.keys;i++) {
       console.log( opcodes[i]);
     }
 
 
-    var program = rom.data.match(/(.{1,4})/g);
+    var program = rom.data.toUpperCase().match(/(.{1,4})/g);
     for (i=0;i<program.length;i++) {
       console.log( program[i]);
+      get_opcode_by_instr(program[i]);
     }
 
     </script>
