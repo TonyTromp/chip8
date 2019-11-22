@@ -25,6 +25,12 @@
       // and read a value back later. The primary difference is that the delay timer perpetually
       // counts down at a rate of sixty hertz until it reaches zero.
       delay_timer: 0,
+      // CHIP-8 contains another timer, called the sound timer, which is used for sound output.
+      // Similar to the delay timer, the sound timer also counts down at a rate of sixty hertz.
+      // Contrastingly, when the sound timer is non-zero, a sound frequency will be generated
+      // by the speaker (or emulated by a modern interpreter).
+      sound_timer: 0,
+
       instr: {
         // LD_6XNN - Store number NN in register VX
         LD_6XNN: function(hRegVX, hValue) { this.Parent.register[hex2dec(hRegVX)]=hex2dec(hValue); },
@@ -38,6 +44,10 @@
         LD_FX07: function(hRegVX) { this.Parent.register[hex2dec(hRegVX)]=this.Parent.delay_timer; },
         // LD_FX15 - Set the delay timer to the value of register VX
         LD_FX15: function(hRegVX) { this.Parent.delay_timer=this.Parent.register[hex2dec(hRegVX)]; },
+        // LD_FX18 - Set the sound timer to the value of register VX
+        LD_FX18: function(hRegVX) {
+          this.Parent.sound_timer=this.Parent.register[hex2dec(hRegVX)];
+        },
 
         // 7XNN Add the value NN to register VX
         ADD_7XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)] += hex2dec(hValue);
@@ -264,7 +274,8 @@
               this.cpu.instr.LD_FX15(instr[1]);
               debug_opcode("FX15",instr);
               break;
-            case '18': //FX18
+            case '18': //FX18 - Set the sound timer to the value of register VX
+              this.cpu.instr.LD_FX18(instr[1]);
               debug_opcode("FX18",instr);
               break;
             case '1E': //FX1E Add the value stored in register VX to register I
