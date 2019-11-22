@@ -7,38 +7,77 @@
       , data: "6a026b0c6c3f6d0ca2eadab6dcd66e0022d4660368026060f015f0073000121ac717770869ffa2f0d671a2eadab6dcd66001e0a17bfe6004e0a17b02601f8b02dab6600ce0a17dfe600de0a17d02601f8d02dcd6a2f0d67186848794603f8602611f871246021278463f1282471f69ff47006901d671122a68026301807080b5128a68fe630a807080d53f0112a2610280153f0112ba80153f0112c880153f0112c26020f01822d48e3422d4663e3301660368fe33016802121679ff49fe69ff12c87901490269016004f0187601464076fe126ca2f2fe33f265f12964146500d4557415f229d45500ee808080808080800000000000"
     }
 
-    //Int8Array can be used but i this is ES2017 spec and i am old-skool
     memory   = Array.apply(null, {length: 4096});
 
-    /*
-    CHIP-8 allows for the usage of sixteen eight-bit general purpose registers capable of storing
-    unsigned integers between decimal 0 and 255, or hexadecimal 00 to FF.
-    These registers are referred to as V0 to VF, one for each hexadecimal digit.
-    Any register can be used for data manipulation, but it should be noted that the VF register is often
-    modified by certain instructions to act as a flag.
-    */
-
-    /* I Register
-    In order to specify the memory addresses containing the data for a given sprite, there must be some way to store an address for later use. The sixteen data registers (V0 - VF) provided by CHIP-8 are only eight bits in length, and therefore could only store addresses 00 to FF. Therefore, CHIP-8 provides a special register that is used only to store memory addresses. This register, called the I register, proves useful when performing operations involving reading and writing to and from memory, most importantly, drawing graphics.
-    */
-    register = Array.apply(null, {length: 16});
     var cpu = {
       type: 'chip8',
+      // CHIP-8 allows for the usage of sixteen eight-bit general purpose registers capable of storing
+      // unsigned integers between decimal 0 and 255, or hexadecimal 00 to FF.
+      // These registers are referred to as V0 to VF, one for each hexadecimal digit.
+      // Any register can be used for data manipulation, but it should be noted that the VF register is often
+      // modified by certain instructions to act as a flag.
       register: new Int16Array(16),
+      // I Register - In order to specify the memory addresses containing the data for a given sprite,
+      // there must be some way to store an address for later use. The sixteen data registers (V0 - VF)
+      // provided by CHIP-8 are only eight bits in length, and therefore could only store addresses 00 to FF. Therefore, CHIP-8 provides a special register that is used only to store memory addresses. This register, called the I register, proves useful when performing operations involving reading and writing to and from memory, most importantly, drawing graphics.
       iregister: 0,
+      //The delay timer acts similarly to a data register: the programmer can load an eight bit value into the delay timer,
+      // and read a value back later. The primary difference is that the delay timer perpetually
+      // counts down at a rate of sixty hertz until it reaches zero.
+      delay_timer: 0,
       instr: {
-        // LD_6XNN: Store number NN in register VX
-        LD_6XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)]=hex2dec(hValue); },
-        // 8XY0 Store the value of register VY in register VX
-        LD_8XY0: function(valX, valY) { this.Parent.register[hex2dec(valX)]=this.Parent.register[hex2dec(valY)];  },
-        // Store memory address NNN in register I
+        // LD_6XNN - Store number NN in register VX
+        LD_6XNN: function(hRegVX, hValue) { this.Parent.register[hex2dec(hRegVX)]=hex2dec(hValue); },
+        // LD_8XY0 - Store the value of register VY in register VX
+        LD_8XY0: function(hRegVX, hRegVY) { this.Parent.register[hex2dec(hRegVX)]=this.Parent.register[hex2dec(hRegVY)];  },
+        // LD_ANNN - Store memory address NNN in register I
         LD_ANNN: function(hValue) {  this.Parent.iregister=hex2dec(hValue); },
-        // Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
-        LD_FX29: function(hValue) { this.Parent.iregister=this.Parent.register[ hex2dec(hValue) ]; },
+        // LD_FX29 - Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
+        LD_FX29: function(hRegVX) { this.Parent.iregister=this.Parent.register[ hex2dec(hRegVX) ]; },
+        //LD_FX07 - Store the current value of the delay timer in register VX
+        LD_FX07: function(hRegVX) { this.Parent.register[hex2dec(hRegVX)]=this.Parent.delay_timer; },
+        // LD_FX15 - Set the delay timer to the value of register VX
+        LD_FX15: function(hRegVX) { this.Parent.delay_timer=this.Parent.register[hex2dec(hRegVX)]; },
 
         // 7XNN Add the value NN to register VX
-        ADD_7XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)] += hex2dec(hValue); if (this.Parent.register[hex2dec(hReg)]>254) this.Parent.register[hex2dec(hReg)]=254; }
+        ADD_7XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)] += hex2dec(hValue);
+          if (this.Parent.register[hex2dec(hReg)]>255) {
+            this.Parent.register[hex2dec(hReg)]= this.Parent.register[hex2dec(hReg)] % 256;
+          }
+        },
+        // 8XY4 Add the value of register VY to register VX.
+        // Set VF to 01 if a carry occurs. Set VF to 00 if a carry does not occur
+        ADD_8XY4: function(valX, valY) {
+          this.Parent.register[hex2dec(valX)]+=this.Parent.register[hex2dec(valY)];
+          this.Parent.register[15]=0;
+          if (this.Parent.register[hex2dec(valX)]>255) {
+            this.Parent.register[hex2dec(valX)]=this.Parent.register[hex2dec(valX)] % 256;
+            this.Parent.register[15]=1;
+          }
+        },
+        //FX1E Add the value stored in register VX to register I
+        ADD_FX1E: function(hReg) { this.Parent.iregister=this.Parent.register[hex2dec(hReg)]; },
 
+        // SUB_8XY5 - Subtract the value of register VY from register VX.
+        // Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"
+        SUB_8XY5: function(hRegX,hRegY) {
+          this.Parent.register[hex2dec(hRegX)] -= this.Parent.register[hex2dec(hRegY)];
+          this.Parent.register[15]=1;
+          if (this.Parent.register[hex2dec(hRegX)]<0) {
+            this.Parent.register[hex2dec(hRegX)]=0;
+            this.Parent.register[15]=0;
+          }
+        },
+        // SUB_8XY7 - "Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs.
+        // Set VF to 01 if a borrow does not occur
+        SUB_8XY7: function(hRegX,hRegY) {
+          this.Parent.register[hex2dec(hRegX)] = this.Parent.register[hex2dec(hRegY)] - this.Parent.register[hex2dec(hRegX)];
+          this.Parent.register[15]=1;
+          if (this.Parent.register[hex2dec(hRegX)]<0) {
+            this.Parent.register[hex2dec(hRegX)]=0;
+            this.Parent.register[15]=0;
+          }
+        }
 
       },
       init: function() {
@@ -48,11 +87,9 @@
       }
     }.init();
 
-
     function hex2dec(hex) {
       return parseInt(hex, 16);
     }
-
 
     opcodes = {
           "00E0": [1, "CLS","Clear the screen"]
@@ -72,7 +109,7 @@
         , "8XY4": [1, "ADD","Add the value of register VY to register VX. Set VF to 01 if a carry occurs. Set VF to 00 if a carry does not occur"]
         , "8XY5": [1, "SUB","Subtract the value of register VY from register VX.Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"]
         , "8XY6": [1, "SHR","Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift"]
-        , "8XY7": [1, "SUBN","Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"]
+        , "8XY7": [1, "SUB","Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"]
         , "8XYE": [1, "SHL","Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift"]
         , "9XY0": [1, "SNE","Skip the following instruction if the value of register VX is not equal to the value of register VY"]
         , "ANNN": [1, "LD","Store memory address NNN in register I"]
@@ -104,135 +141,148 @@
     const keys = Object.keys(opcodes);
     opcode_string=keys.toString();
 
+    function debug_opcode(opcode, value) {
+      console.log("[%s_%s] %s - %s", opcodes[opcode][1],  opcode, value, opcodes[opcode][2]);
+    }
+
     function get_opcode_by_instr(instr) {
       //not going to use regex because regex would be a waste test if last-nibble is needed, the hard ways
       switch (instr[0]) {
         case '0':
            if (instr=="0000") {
+             console.log("noop");
              return; // nop-cycle
            }
            // complex type.. test last-nibble
            switch (instr[3]) {
              case '0':
-               console.log("Processing 00E0 %s", opcodes["00E0"][2]);
+               debug_opcode("00E0",instr);
              break;
              case 'E': // 00EE
-               console.log("Processing 00EE %s", opcodes["00EE"][2]);
+               debug_opcode("00EE",instr);
              break;
            }
           break;
         case '1':
-          console.log("Processing 1NNN %s", opcodes["1NNN"][2]);
+          debug_opcode("1NNN",instr);
           break;
-        case '2':
-          console.log("Processing 2NNN %s", opcodes["2NNN"][2]);
+        case '2': // 2NNN
+          debug_opcode("2NNN",instr);
           break;
         case '3': // 3XNN
-          console.log("Processing 3XNN %s", opcodes["3XNN"][2]);
+          debug_opcode("3XNN",instr);
           break;
         case '4': // 4XNN
-          console.log("Processing 4XNN %s", opcodes["4XNN"][2]);
+          debug_opcode("4XNN",instr);
           break;
         case '5': // 5XNN
-          console.log("Processing 5XNN %s", opcodes["5XNN"][2]);
+          debug_opcode("5XNN",instr);
           break;
         case '6': // 6XNN
-          //Processing 6XNN Store number NN in register VX
+          debug_opcode("6XNN",instr);
           this.cpu.instr.LD_6XNN(instr[1],instr[2]+instr[3]);
-          console.log("Processing 6XNN %s, REGISTRY:%s VALUE: %s", opcodes["6XNN"][2],instr[1],instr[2]+instr[3]);
           break;
         case '7': // 7XNN Add the value NN to register VX
+          debug_opcode("7XNN",instr);
           this.cpu.instr.ADD_7XNN(instr[1],instr[2]+instr[3]);
-          console.log("Processing 7XNN %s", opcodes["7XNN"][2]);
           break;
         case '8':
           switch(instr[3]) {
             case '0': // 8XY0 Store the value of register VY in register VX
+              debug_opcode("8XY0",instr);
               this.cpu.instr.LD_8XY0(instr[1],instr[2]);
-              console.log("Processing 8XY0 %s REGX:%s REGY:%s", opcodes["8XY0"][2], instr[1],instr[2]);
               break;
             case '1': // 8XY1
-              console.log("Processing 8XY1 %s", opcodes["8XY1"][2]);
+              debug_opcode("8XY1",instr);
               break;
             case '2': // 8XY2
-              console.log("Processing 8XY2 %s", opcodes["8XY2"][2]);
+              debug_opcode("8XY2",instr);
               break;
             case '3': // 8XY3
-              console.log("Processing 8XY3 %s", opcodes["8XY3"][2]);
+              debug_opcode("8XY3",instr);
               break;
-            case '4': // 8XY4
-              console.log("Processing 8XY4 %s", opcodes["8XY4"][2]);
+            case '4': // 8XY4 Add the value of register VY to register VX.
+                      // Set VF to 01 if a carry occurs. Set VF to 00 if a carry does not occur
+              debug_opcode("8XY4",instr);
+              this.cpu.instr.ADD_8XY4(instr[1],instr[2]);
               break;
             case '5': // 8XY5
-              console.log("Processing 8XY5 %s", opcodes["8XY5"][2]);
+              // SUB","Subtract the value of register VY from register VX.
+              // Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"
+              debug_opcode("8XY5",instr);
+              this.cpu.instr.SUB_8XY5(instr[1],instr[2]);
               break;
             case '6': // 8XY6
-              console.log("Processing 8XY6 %s", opcodes["8XY6"][2]);
+              debug_opcode("8XY6",instr);
               break;
-            case '7': // 8XY7
-              console.log("Processing 8XY7 %s", opcodes["8XY7"][2]);
+            case '7': // SUB_8XY7 - "Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"]
+              debug_opcode("8XY7",instr);
+              this.cpu.instr.SUB_8XY7(instr[1],instr[2]);
               break;
-            case '8': // 8XY7
-              console.log("Processing 8XYE %s", opcodes["8XYE"][2]);
+            case '8': // 8XYE
+              debug_opcode("8XYE",instr);
               break;
           }
           break;
         case '9': //9XY0
-          console.log("Processing 9XY0 %s", opcodes["9XY0"][2]);
+          debug_opcode("9XY0",instr);
           break;
         case 'A': //ANNN
           // Store memory address NNN in register I
+          debug_opcode("ANNN",instr);
           this.cpu.instr.LD_ANNN(instr[1]+instr[2]+instr[3]);
-          console.log("Processing ANNN %s, iregistry memory address: %s", opcodes["ANNN"][2], instr[1]+instr[2]+instr[3]);
           break;
         case 'B':  //BNNN
-          console.log("Processing BNNN %s", opcodes["BNNN"][2]);
+          debug_opcode("BNNN",instr);
           break;
         case 'C': //CXNN
-          console.log("Processing CXNN %s", opcodes["CXNN"][2]);
+          debug_opcode("CXNN",instr);
           break;
         case 'D': //DXYN
-          console.log("Processing DXYN %s", opcodes["DXYN"][2]);
+          debug_opcode("DXYN",instr);
           break;
         case 'E':
           switch (instr[3]) {
             case 'E': //EX9E
-              console.log("Processing EX9E %s", opcodes["EX9E"][2]);
+              debug_opcode("EX9E",instr);
               break;
             case '1': //EXA1
-              console.log("Processing EXA1 %s", opcodes["EXA1"][2]);
+              debug_opcode("EXA1",instr);
               break;
           }
           break;
         case 'F':
           switch (instr[2]+instr[3]) {
             case '07': //FX07 Store the current value of the delay timer in register VX
-              console.log("Processing FX07 %s", opcodes["FX07"][2]);
+              debug_opcode("FX07",instr);
+              this.cpu.instr.LD_FX07(instr[1]);
               break;
             case '0A': //FX0A
-              console.log("Processing FX0A %s", opcodes["FX0A"][2]);
+              debug_opcode("FX0A",instr);
               break;
-            case '15': //FX15
-              console.log("Processing FX15 %s", opcodes["FX15"][2]);
+            case '15': // LD_FX15 - Set the delay timer to the value of register VX
+              this.cpu.instr.LD_FX15(instr[1]);
+              debug_opcode("FX15",instr);
               break;
             case '18': //FX18
-              console.log("Processing FX18 %s", opcodes["FX18"][2]);
+              debug_opcode("FX18",instr);
               break;
-            case '1E': //FX1E
-              console.log("Processing FX1E %s", opcodes["FX1E"][2]);
+            case '1E': //FX1E Add the value stored in register VX to register I
+              debug_opcode("FX1E",instr);
+              this.cpu.instr.ADD_FX1E(instr[1]);
               break;
             case '29': //FX29 Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
+              debug_opcode("FX29",instr);
               this.cpu.instr.LD_FX29(instr[1]);
-              console.log("Processing FX29 %s", opcodes["FX29"][2]);
               break;
             case '33': //FX33
-              console.log("Processing FX33 %s", opcodes["FX33"][2]);
+              debug_opcode("FX33",instr);
               break;
             case '55': //FX55
-              console.log("Processing FX55 %s", opcodes["FX55"][2]);
+              debug_opcode("FX55",instr);
               break;
             case '65': //FX65
-              console.log("Processing FX65 %s", opcodes["FX65"][2]);
+              debug_opcode("FX65",instr);
               break;
           }
 
@@ -244,10 +294,8 @@
       console.log( opcodes[i]);
     }
 
-
     var program = rom.data.toUpperCase().match(/(.{1,4})/g);
     for (i=0;i<program.length;i++) {
-      console.log( program[i]);
       get_opcode_by_instr(program[i]);
       // dump registers
       if (this.cpu.iregister>0) {
