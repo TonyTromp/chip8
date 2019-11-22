@@ -2,9 +2,60 @@
   <head>
     <script type="text/javascript" src="js/hardware.js"></script>
     <script language="javascript" type="text/javascript">
+    rom = {
+      name: "PONG"
+      , data: "6a026b0c6c3f6d0ca2eadab6dcd66e0022d4660368026060f015f0073000121ac717770869ffa2f0d671a2eadab6dcd66001e0a17bfe6004e0a17b02601f8b02dab6600ce0a17dfe600de0a17d02601f8d02dcd6a2f0d67186848794603f8602611f871246021278463f1282471f69ff47006901d671122a68026301807080b5128a68fe630a807080d53f0112a2610280153f0112ba80153f0112c880153f0112c26020f01822d48e3422d4663e3301660368fe33016802121679ff49fe69ff12c87901490269016004f0187601464076fe126ca2f2fe33f265f12964146500d4557415f229d45500ee808080808080800000000000"
+    }
+
+    memory = Array.apply(null, {length: 4096});
+
+    opcodes = {
+        "00E0": {"CLS":"Clear the screen"}
+        , "00EE": {"RET":"Return from a subroutine"}
+        , "0NNN": {"SYS addr":"Execute machine language subroutine at address NNN"}
+        , "1NNN": {"JP addr":"Jump to address NNN"}
+        , "2NNN": {"CALL addr":"Execute subroutine starting at address NNN"}
+        , "3XNN": {"SE Vx, byte":"Skip the following instruction if the value of register VX equals NN"}
+        , "4XNN": {"SNE Vx, byte":"Skip the following instruction if the value of register VX is not equal to NN"}
+        , "5XY0 ": {"SE Vx, Vy":"Skip the following instruction if the value of register VX is equal to the value of register VY"}
+        , "6XNN": {"LD Vx, byte":"Store number NN in register VX"}
+        , "7XNN": {"ADD Vx, byte":"Add the value NN to register VX"}
+        , "8XY0": {"LD Vx, Vy":"Store the value of register VY in register VX"}
+        , "8XY1": {"OR Vx, Vy":"Set VX to VX OR VY"}
+        , "8XY2": {"AND Vx, Vy":"Set VX to VX AND VY"}
+        , "8XY3": {"XOR Vx, Vy":"Set VX to VX XOR VY"}
+        , "8XY4": {"ADD Vx, Vy":"Add the value of register VY to register VX. Set VF to 01 if a carry occurs. Set VF to 00 if a carry does not occur"}
+        , "8XY5": {"SUB Vx, Vy":"Subtract the value of register VY from register VX.Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"}
+        , "8XY6": {"SHR Vx {, Vy}":"Store the value of register VY shifted right one bit in register VX. Set register VF to the least significant bit prior to the shift"}
+        , "8XY7": {"SUBN Vx, Vy":"Set register VX to the value of VY minus VX. Set VF to 00 if a borrow occurs. Set VF to 01 if a borrow does not occur"}
+        , "8XYE": {"SHL Vx {, Vy}":"Store the value of register VY shifted left one bit in register VX. Set register VF to the most significant bit prior to the shift"}
+        , "9XY0": {"SNE Vx, Vy":"Skip the following instruction if the value of register VX is not equal to the value of register VY"}
+        , "ANNN": {"LD I, addr":"Store memory address NNN in register I"}
+        , "BNNN": {"JP V0, addr":"Jump to address NNN + V0"}
+        , "CXNN": {"RND Vx, byte":"Set VX to a random number with a mask of NN"}
+        , "DXYN": {"DRW Vx, Vy, nibble":"Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I. Set VF to 01 if any set pixels are changed to unset, and 00 otherwise"}
+        , "EX9E": {"SKP Vx":"Skip the following instruction if the key corresponding to the hex value currently stored in register VX is pressed"}
+        , "EXA1": {"SKNP Vx":"Skip the following instruction if the key corresponding to the hex value currently stored in register VX is not pressed"}
+        , "FX07": {"LD Vx, DT":"Store the current value of the delay timer in register VX"}
+        , "FX0A": {"LD Vx, K":"Wait for a keypress and store the result in register VX"}
+        , "FX15": {"LD DT, Vx":"Set the delay timer to the value of register VX"}
+        , "FX18": {"LD ST, Vx":"Set the sound timer to the value of register VX"}
+        , "FX1E": {"ADD I, Vx":"Add the value stored in register VX to register I"}
+        , "FX29": {"LD F, Vx":"Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX"}
+        , "FX33": {"LD B, Vx":"Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I+1, and I+2"}
+        , "FX55": {"LD [I], Vx":"Store the values of registers V0 to VX inclusive in memory starting at address I. I is set to I + X + 1 after operation"}
+        , "FX65": {"LD Vx, [I]":"Fill registers V0 to VX inclusive with the values stored in memory starting at address I. I is set to I + X + 1 after operation"}
+    }
+
+    function main() {
+      // setup gfx
+      // setup input
+      // init CHIP8_CPU
+    }
     </script>
   </head>
-<body>
-
+<body onload="javascript:main();">
+http://mattmik.com/files/chip8/mastering/chip8.html
+http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
 </body>
 </html>
