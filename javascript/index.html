@@ -7,7 +7,7 @@
       , data: "6a026b0c6c3f6d0ca2eadab6dcd66e0022d4660368026060f015f0073000121ac717770869ffa2f0d671a2eadab6dcd66001e0a17bfe6004e0a17b02601f8b02dab6600ce0a17dfe600de0a17d02601f8d02dcd6a2f0d67186848794603f8602611f871246021278463f1282471f69ff47006901d671122a68026301807080b5128a68fe630a807080d53f0112a2610280153f0112ba80153f0112c880153f0112c26020f01822d48e3422d4663e3301660368fe33016802121679ff49fe69ff12c87901490269016004f0187601464076fe126ca2f2fe33f265f12964146500d4557415f229d45500ee808080808080800000000000"
     }
 
-    memory   = Array.apply(null, {length: 4096});
+    memory = new Uint8Array(4096);
 
     var cpu = {
       type: 'chip8',
@@ -16,7 +16,7 @@
       // These registers are referred to as V0 to VF, one for each hexadecimal digit.
       // Any register can be used for data manipulation, but it should be noted that the VF register is often
       // modified by certain instructions to act as a flag.
-      register: new Int16Array(16),
+      register: new Uint8Array(16),
       // I Register - In order to specify the memory addresses containing the data for a given sprite,
       // there must be some way to store an address for later use. The sixteen data registers (V0 - VF)
       // provided by CHIP-8 are only eight bits in length, and therefore could only store addresses 00 to FF. Therefore, CHIP-8 provides a special register that is used only to store memory addresses. This register, called the I register, proves useful when performing operations involving reading and writing to and from memory, most importantly, drawing graphics.
@@ -30,14 +30,60 @@
       // Contrastingly, when the sound timer is non-zero, a sound frequency will be generated
       // by the speaker (or emulated by a modern interpreter).
       sound_timer: 0,
-
+      pc: 0, // program-counter
+      sp: 0, // stackpointer
+      stack: new Uint8Array(16),
+      state: null, // enum{'running','onhold','stopped'}
+      run_id: null, // id for intervalTimer
+      frequency: 60, // Operations runs at 60Hz
       instr: {
+        // 00EE - Return from subroutine
+        RET_00EE: function() {
+          this.Parent.sp--;
+          if (this.Parent.sp>=0) {
+            this.Parent.pc = this.Parent.stack[this.Parent.sp];
+          } else {
+            console.log("Program Halted: Invalid Stack Pointer");
+            this.Parent.state='stopped';
+          }
+        },
+        JMP_1NNN: function(hValue) {
+          pc = hex2dec(hValue);
+        },
+        CALL_2NNN: function(hValue) {
+          this.Parent.stack[this.Parent.sp] = this.Parent.pc;
+          this.Parent.pc = hex2dec(hValue); // set-new memory position
+          this.Parent.sp++; // increase stack pointter
+        },
+        // 3XNN - Skip the following instruction if the value of register VX equals NN
+        SKIP_3XNN: function(hRegX, hValue) {
+          if (this.Parent.register[ hex2dec(hRegX) ]== hex2dec(hValue)) {
+            //console.log("SKIP_3XNN: Skipped instruction value: %s is EQUAL to Register", hex2dec(hValue) );
+            this.Parent.pc+=4; // skip instruction
+          }
+        },
+        // SKIP_4XNN - Skip the following instruction if the value of register VX is not equal to NN
+        SKIP_4XNN: function(hRegX, hValue) {
+          if (this.Parent.register[ hex2dec(hRegX) ]!= hex2dec(hValue)) {
+            //console.log("SKIP_4XNN: Skipped instruction value: %s is NOT EQUAL to Register", hex2dec(hValue) );
+            this.Parent.pc+=4; // skip instruction
+          }
+        },
+        // SKIP_5XY0 - Skip the following instruction if the value of register VX is equal to the value of register VY
+        SKIP_5XY0: function(hRegX, hRegY) {
+          if (this.Parent.register[ hex2dec(hRegX) ]== this.Parent.register[ hex2dec(hRegY) ]) {
+            console.log("SKIP_5XY0: Skip the following instruction if the value of register VX is equal to the value=%s of register VY ", this.Parent.register[ hex2dec(hRegX) ] );
+            this.Parent.pc+=4; // skip instruction
+          }
+        },
         // LD_6XNN - Store number NN in register VX
         LD_6XNN: function(hRegVX, hValue) { this.Parent.register[hex2dec(hRegVX)]=hex2dec(hValue); },
         // LD_8XY0 - Store the value of register VY in register VX
         LD_8XY0: function(hRegVX, hRegVY) { this.Parent.register[hex2dec(hRegVX)]=this.Parent.register[hex2dec(hRegVY)];  },
         // LD_ANNN - Store memory address NNN in register I
         LD_ANNN: function(hValue) {  this.Parent.iregister=hex2dec(hValue); },
+        // JP_BNNN - Jump to address NNN + V0
+        JP_BNNN: function(hValue) { pc = hex2dec(hValue)+register[0]; },
         // LD_FX29 - Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register VX
         LD_FX29: function(hRegVX) { this.Parent.iregister=this.Parent.register[ hex2dec(hRegVX) ]; },
         //LD_FX07 - Store the current value of the delay timer in register VX
@@ -45,9 +91,7 @@
         // LD_FX15 - Set the delay timer to the value of register VX
         LD_FX15: function(hRegVX) { this.Parent.delay_timer=this.Parent.register[hex2dec(hRegVX)]; },
         // LD_FX18 - Set the sound timer to the value of register VX
-        LD_FX18: function(hRegVX) {
-          this.Parent.sound_timer=this.Parent.register[hex2dec(hRegVX)];
-        },
+        LD_FX18: function(hRegVX) { this.Parent.sound_timer=this.Parent.register[hex2dec(hRegVX)]; },
 
         // 7XNN Add the value NN to register VX
         ADD_7XNN: function(hReg, hValue) { this.Parent.register[hex2dec(hReg)] += hex2dec(hValue);
@@ -108,7 +152,7 @@
         , "1NNN": [1, "JP","Jump to address NNN"]
         , "2NNN": [1, "CALL","Execute subroutine starting at address NNN"]
         , "3XNN": [1, "SE","Skip the following instruction if the value of register VX equals NN"]
-        , "4XNN": [1, "SNE","Skip the following instruction if the value of register VX is not equal to NN"]
+        , "4XNN": [1, "SE","Skip the following instruction if the value of register VX is not equal to NN"]
         , "5XY0": [1, "SE","Skip the following instruction if the value of register VX is equal to the value of register VY"]
         , "6XNN": [1, "LD","Store number NN in register VX"]
         , "7XNN": [1, "ADD","Add the value NN to register VX"]
@@ -146,11 +190,6 @@
       // init CHIP8_CPU
     }
 
-    // the opcodes table is created for readability
-    // now lets transpose for the sake of speed to a flat page
-    const keys = Object.keys(opcodes);
-    opcode_string=keys.toString();
-
     function debug_opcode(opcode, value) {
       console.log("[%s_%s] %s - %s", opcodes[opcode][1],  opcode, value, opcodes[opcode][2]);
     }
@@ -158,9 +197,17 @@
     function get_opcode_by_instr(instr) {
       //not going to use regex because regex would be a waste test if last-nibble is needed, the hard ways
       switch (instr[0]) {
+        default:
+           console.log('Unknown opcode: Program Halted');
+           this.cpu.state='stopped';
+           clear_program();
+           break;
+
         case '0':
            if (instr=="0000") {
-             console.log("noop");
+             console.log("noop - halt program");
+             this.cpu.state='stopped';
+             clear_program();
              return; // nop-cycle
            }
            // complex type.. test last-nibble
@@ -168,25 +215,32 @@
              case '0':
                debug_opcode("00E0",instr);
              break;
-             case 'E': // 00EE
+             case 'E': // 00EE - Return from subroutine
+               this.cpu.instr.RET_00EE();
                debug_opcode("00EE",instr);
              break;
            }
           break;
         case '1':
+          //1NNN - Jumps to address NNN
           debug_opcode("1NNN",instr);
+          this.cpu.instr.JMP_1NNN(instr[1]+instr[2]+instr[3]);
           break;
         case '2': // 2NNN
           debug_opcode("2NNN",instr);
+          this.cpu.instr.CALL_2NNN(instr[1]+instr[2]+instr[3])
           break;
-        case '3': // 3XNN
+        case '3': // 3XNN - Skip the following instruction if the value of register VX equals NN
           debug_opcode("3XNN",instr);
+          this.cpu.instr.SKIP_3XNN(instr[1],instr[2]+instr[3])
           break;
-        case '4': // 4XNN
+        case '4': // 4XNN - Skip the following instruction if the value of register VX is not equal to NN
           debug_opcode("4XNN",instr);
+          this.cpu.instr.SKIP_4XNN(instr[1],instr[2]+instr[3])
           break;
-        case '5': // 5XNN
-          debug_opcode("5XNN",instr);
+        case '5': // 5XY0 - Skip the following instruction if the value of register VX is equal to the value of register VY
+          debug_opcode("5XY0",instr);
+          this.cpu.instr.SKIP_5XY0(instr[1],instr[2])
           break;
         case '6': // 6XNN
           debug_opcode("6XNN",instr);
@@ -243,6 +297,7 @@
           this.cpu.instr.LD_ANNN(instr[1]+instr[2]+instr[3]);
           break;
         case 'B':  //BNNN
+          this.cpu.instr.JP_BNNN(instr[1]+instr[2]+instr[3]);
           debug_opcode("BNNN",instr);
           break;
         case 'C': //CXNN
@@ -296,29 +351,75 @@
               debug_opcode("FX65",instr);
               break;
           }
-
           break;
       }
     }
 
-    for (i=0;i<opcodes.keys;i++) {
-      console.log( opcodes[i]);
+
+
+    function load_rom_in_memory(data) {
+      for (i=0;i<data.length;i++) {
+        offset=512; // 512 = 0x200 addresss which programs are loaded
+        memory[offset+i] = parseInt(data[i], 16);
+      }
     }
 
-    var program = rom.data.toUpperCase().match(/(.{1,4})/g);
-    for (i=0;i<program.length;i++) {
-      get_opcode_by_instr(program[i]);
-      // dump registers
-      if (this.cpu.iregister>0) {
-        console.log("iregister set to memory location: %s", this.cpu.iregister);
-      }
-      console.log( this.cpu.register);
+    //pc = 512; // program counte
+    //sp=0;
+    stack=new Uint8Array();
+
+    function clear_program() {
+      cpu.pc=512;
+      cpu.sp=0;
     }
+
+    function run_program_from_memory() {
+      clear_program();
+      cpu.state='running';
+      sec_delay=(1/cpu.frequency)*1000; // convert Hz to milliseconds
+      cpu.run_id=setInterval(run_cycle, sec_delay);
+    }
+
+    function run_cycle() {
+      if (cpu.state=="running") {
+        instr=memory.slice(cpu.pc,cpu.pc+4);
+        hex_intr=Array.from(instr, function(byte) {
+          return ('' + (byte).toString(16)).slice(-2)
+        }).join('');
+        get_opcode_by_instr(hex_intr.toUpperCase());
+        cpu.pc+=4;
+      } else {
+         // Hold Program
+         clearInterval(cpu.run_id);
+      }
+    }
+
+
+    var program = rom.data.toUpperCase().match(/(.{1,4})/g);
+
+    load_rom_in_memory(rom.data);
+
+    function cpu_run_or_pause() {
+      if (cpu.state=='running') {
+        cpu.state='stop'
+      } else {
+        run_program_from_memory();
+      }
+    }
+
+    function cpu_reset() {
+      clear_program();
+    }
+
 
     </script>
   </head>
 <body onload="javascript:main();">
 http://mattmik.com/files/chip8/mastering/chip8.html
 http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
+<p>
+  <input type="button" value="Run/Pause" onclick="javascript:cpu_run_or_pause();">
+  <input type="button" value="Reset" onclick="javascript:cpu_reset();">
+</p>
 </body>
 </html>
